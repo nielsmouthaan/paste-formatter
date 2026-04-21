@@ -1,12 +1,6 @@
 # Changelog
 
-All notable changes to this project should be documented in this file.
-
-## [0.1.0] - 2026-04-21
-
-Initial release.
-
-### Added
+## 0.1.0
 
 - macOS menu bar app built in Swift with `LSUIElement` behavior for a Dockless utility experience
 - `Paste` action in the menu with fixed shortcut `Control + Option + Command + V`
