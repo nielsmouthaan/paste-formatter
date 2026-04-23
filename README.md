@@ -37,10 +37,6 @@ To build your own copy, check out this repository, ensure you have [Xcode](https
 
 This creates `dist/Paste Formatter.app`.
 
-The required build argument is:
-
-- `<BUNDLE_IDENTIFIER>`: the reverse-DNS bundle identifier for your own build, for example `com.example.paste-formatter`.
-
 To sign the app bundle as well, pass the name of a code signing identity available in your local keychain:
 
 ```bash
