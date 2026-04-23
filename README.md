@@ -49,7 +49,7 @@ To sign the app bundle as well, pass the name of a code signing identity availab
   --signing-identity "<SIGNING_IDENTITY>"
 ```
 
-For a notarized build that can be distributed via GitHub Releases, use a Developer ID Application certificate and create a release zip:
+To create a zipped notarized release build, use a Developer ID Application certificate:
 
 ```bash
 ./scripts/build-app.sh \
