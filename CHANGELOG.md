@@ -12,4 +12,3 @@ Initial version
 - Added the ability to change the default keyboard shortcut for pasting
 - Added launch at login
 - Added the ability to preserve paragraph breaks when pasting into text-only fields
-- Added a build script with named arguments for bundle identifier, signing identity, optional notarization, and release zip creation
