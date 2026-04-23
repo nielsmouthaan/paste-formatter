@@ -2,12 +2,15 @@
 
 Paste Formatter is a simple macOS menu bar app that pastes formatted content from your clipboard. The original issue it solves is copying rich text including links, while stripping unwanted fonts and colors before pasting into another app.
 
+![Paste Formatter](Header.png)
+
 ## Features
 
 - Paste formatted clipboard content in the active app from the menu or using a global keyboard shortcut
 - Preserve fonts when pasting
 - Preserve colors when pasting
 - Preserve links when pasting
+- Preserve list markers and indentation when pasting into text-only fields
 - Preserve paragraph breaks when pasting into text-only fields
 - Change the default keyboard shortcut
 - Launch the app automatically at login
@@ -54,6 +57,10 @@ Paste Formatter reads the current clipboard contents, creates a cleaned version 
 
 It is useful when you want to paste rich text content without carrying over unwanted styling from the source, while still keeping the formatting you do want, such as links.
 
+### Why not use “Paste and Match Style”?
+
+“Paste and Match Style” often removes more than just unwanted styling. It can also remove elements you may want to keep, such as links.
+
 ### Why does the app need Accessibility permissions in System Settings?
 
 The app uses Accessibility permissions to simulate `Command-V` after preparing the cleaned clipboard content. Without that permission, it can still clean the clipboard, but you will need to paste manually.
@@ -66,6 +73,10 @@ macOS 13 or later.
 
 Some apps paste only plain text and ignore rich-text paragraph spacing. When this option is enabled, Paste Formatter tries to preserve paragraph breaks more clearly for those text-only targets.
 
+### What does “Preserve lists in plain text” do?
+
+Some rich-text lists store their bullets, numbering, and nesting as list metadata instead of plain characters. When this option is enabled, Paste Formatter adds visible list markers and simple indentation to the plain-text version used by text-only fields.
+
 ### Will this work together with my clipboard manager?
 
 Paste Formatter temporarily places formatted content on your clipboard before pasting it, so your clipboard manager may capture an extra copy. If that happens, configure your clipboard manager to ignore Paste Formatter.
@@ -77,4 +88,3 @@ You can control whether Paste Formatter appears in the menu bar via System Setti
 ## License
 
 See [LICENSE](LICENSE).
-

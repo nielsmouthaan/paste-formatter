@@ -20,14 +20,35 @@ public enum PlainTextFormatter {
         let result = NSMutableString(string: normalizedPlainText)
         var insertedCharacters = 0
         var location = 0
+        var listState = PlainTextListState()
 
         while location < source.length {
             let paragraphRange = source.paragraphRange(for: NSRange(location: location, length: 0))
+            let paragraphStyle = input.attribute(
+                .paragraphStyle,
+                at: paragraphRange.location,
+                effectiveRange: nil
+            ) as? NSParagraphStyle
+            let currentListSignature = textListSignature(for: paragraphStyle)
 
             if usesExpandedParagraphBreak(beforeParagraphAt: paragraphRange.location, in: input) {
                 let insertionIndex = paragraphRange.location + insertedCharacters
                 result.insert("\n", at: insertionIndex)
                 insertedCharacters += 1
+            }
+
+            if options.preserveListsInPlainText, currentListSignature != nil {
+                let itemNumber = listState.nextItemNumber(for: paragraphStyle)
+                if let markerPrefix = missingListMarkerPrefix(
+                    in: input,
+                    paragraphRange: paragraphRange,
+                    itemNumber: itemNumber
+                ) {
+                    result.insert(markerPrefix, at: paragraphRange.location + insertedCharacters)
+                    insertedCharacters += (markerPrefix as NSString).length
+                }
+            } else {
+                listState.reset()
             }
 
             location = NSMaxRange(paragraphRange)
@@ -95,5 +116,104 @@ public enum PlainTextFormatter {
         return textLists
             .map { "\($0.markerFormat)" }
             .joined(separator: "|")
+    }
+
+    private static func missingListMarkerPrefix(
+        in input: NSAttributedString,
+        paragraphRange: NSRange,
+        itemNumber: Int
+    ) -> String? {
+        guard
+            let paragraphStyle = input.attribute(.paragraphStyle, at: paragraphRange.location, effectiveRange: nil) as? NSParagraphStyle,
+            let textList = paragraphStyle.textLists.last
+        else {
+            return nil
+        }
+
+        let source = input.string as NSString
+        let paragraphText = source.substring(with: paragraphRange)
+        let trimmedParagraphText = paragraphText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let marker = normalizedMarker(textList.marker(forItemNumber: itemNumber), for: textList)
+
+        guard !trimmedParagraphText.isEmpty else {
+            return nil
+        }
+
+        if trimmedParagraphText.hasPrefix(marker) || trimmedParagraphText.hasPrefix(textList.marker(forItemNumber: itemNumber)) {
+            return nil
+        }
+
+        let level = paragraphStyle.textLists.count
+        let indentation = String(repeating: "  ", count: max(level - 1, 0))
+        return "\(indentation)\(marker) "
+    }
+
+    private static func normalizedMarker(_ marker: String, for textList: NSTextList) -> String {
+        let markerFormat = "\(textList.markerFormat)"
+
+        if markerFormat.contains("hyphen") || marker == "\u{2043}" {
+            return "-"
+        }
+
+        if markerFormat.contains("decimal")
+            || markerFormat.contains("alpha")
+            || markerFormat.contains("roman"),
+            !markerHasTrailingPunctuation(marker) {
+            return "\(marker)."
+        }
+
+        return marker
+    }
+
+    private static func markerHasTrailingPunctuation(_ marker: String) -> Bool {
+        guard let last = marker.last else {
+            return false
+        }
+
+        return [".", ")", ":", ";"].contains(last)
+    }
+}
+
+private struct PlainTextListState {
+    private var previousSignatures: [String] = []
+    private var counters: [Int] = []
+
+    mutating func nextItemNumber(for style: NSParagraphStyle?) -> Int {
+        guard let signatures = textListSignatures(for: style), !signatures.isEmpty else {
+            reset()
+            return 0
+        }
+
+        let level = signatures.count
+        let commonPrefixLength = zip(previousSignatures, signatures).prefix { previous, current in
+            previous == current
+        }.count
+
+        if commonPrefixLength < level {
+            counters = Array(counters.prefix(commonPrefixLength))
+            while counters.count < level {
+                counters.append(0)
+            }
+            counters[level - 1] = 1
+        } else {
+            counters = Array(counters.prefix(level))
+            counters[level - 1] += 1
+        }
+
+        previousSignatures = signatures
+        return counters[level - 1]
+    }
+
+    mutating func reset() {
+        previousSignatures = []
+        counters = []
+    }
+
+    private func textListSignatures(for style: NSParagraphStyle?) -> [String]? {
+        guard let textLists = style?.textLists, !textLists.isEmpty else {
+            return nil
+        }
+
+        return textLists.map { "\($0.markerFormat)" }
     }
 }

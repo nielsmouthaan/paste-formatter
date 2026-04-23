@@ -8,6 +8,7 @@ Initial version
 - Added support for preserving fonts when pasting
 - Added support for preserving colors when pasting
 - Added support for preserving links when pasting
+- Added the ability to preserve lists, numbering, and indentation when pasting into text-only fields
 - Added the ability to change the default keyboard shortcut for pasting
 - Added launch at login
 - Added the ability to preserve paragraph breaks when pasting into text-only fields

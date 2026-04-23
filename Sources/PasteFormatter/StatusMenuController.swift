@@ -38,6 +38,11 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         action: #selector(togglePreserveLinks)
     )
 
+    private lazy var preserveListsInPlainTextItem = makeToggleItem(
+        title: "Preserve lists in plain text",
+        action: #selector(togglePreserveListsInPlainText)
+    )
+
     private lazy var preserveParagraphBreaksInPlainTextItem = makeToggleItem(
         title: "Preserve paragraph breaks in plain text",
         action: #selector(togglePreserveParagraphBreaksInPlainText)
@@ -149,6 +154,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         menu.addItem(preserveFontItem)
         menu.addItem(preserveColorsItem)
         menu.addItem(preserveLinksItem)
+        menu.addItem(preserveListsInPlainTextItem)
         menu.addItem(preserveParagraphBreaksInPlainTextItem)
         menu.addItem(.separator())
         menu.addItem(launchAtLoginItem)
@@ -173,6 +179,7 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         preserveFontItem.state = options.preserveFont ? .on : .off
         preserveColorsItem.state = options.preserveColors ? .on : .off
         preserveLinksItem.state = options.preserveLinks ? .on : .off
+        preserveListsInPlainTextItem.state = options.preserveListsInPlainText ? .on : .off
         preserveParagraphBreaksInPlainTextItem.state = options.preserveParagraphBreaksInPlainText ? .on : .off
         pasteItem.keyEquivalent = shortcut.keyEquivalent
         pasteItem.keyEquivalentModifierMask = shortcut.menuModifierMask
@@ -259,6 +266,12 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     @objc private func togglePreserveLinks() {
         updateOptions { options in
             options.preserveLinks.toggle()
+        }
+    }
+
+    @objc private func togglePreserveListsInPlainText() {
+        updateOptions { options in
+            options.preserveListsInPlainText.toggle()
         }
     }
 

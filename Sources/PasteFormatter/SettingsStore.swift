@@ -6,6 +6,7 @@ final class SettingsStore {
         static let preserveFont = "preserveFont"
         static let preserveColors = "preserveColors"
         static let preserveLinks = "preserveLinks"
+        static let preserveListsInPlainText = "preserveListsInPlainText"
         static let preserveParagraphBreaksInPlainText = "preserveParagraphBreaksInPlainText"
         static let shortcutKeyCode = "shortcutKeyCode"
         static let shortcutModifiers = "shortcutModifiers"
@@ -19,6 +20,7 @@ final class SettingsStore {
             Keys.preserveFont: false,
             Keys.preserveColors: false,
             Keys.preserveLinks: true,
+            Keys.preserveListsInPlainText: true,
             Keys.preserveParagraphBreaksInPlainText: true,
             Keys.shortcutKeyCode: KeyboardShortcut.default.keyCode,
             Keys.shortcutModifiers: KeyboardShortcut.default.carbonModifiers
@@ -31,6 +33,7 @@ final class SettingsStore {
                 preserveFont: userDefaults.bool(forKey: Keys.preserveFont),
                 preserveColors: userDefaults.bool(forKey: Keys.preserveColors),
                 preserveLinks: userDefaults.bool(forKey: Keys.preserveLinks),
+                preserveListsInPlainText: userDefaults.bool(forKey: Keys.preserveListsInPlainText),
                 preserveParagraphBreaksInPlainText: userDefaults.bool(forKey: Keys.preserveParagraphBreaksInPlainText)
             )
         }
@@ -38,6 +41,7 @@ final class SettingsStore {
             userDefaults.set(newValue.preserveFont, forKey: Keys.preserveFont)
             userDefaults.set(newValue.preserveColors, forKey: Keys.preserveColors)
             userDefaults.set(newValue.preserveLinks, forKey: Keys.preserveLinks)
+            userDefaults.set(newValue.preserveListsInPlainText, forKey: Keys.preserveListsInPlainText)
             userDefaults.set(
                 newValue.preserveParagraphBreaksInPlainText,
                 forKey: Keys.preserveParagraphBreaksInPlainText
