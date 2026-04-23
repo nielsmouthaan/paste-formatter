@@ -7,11 +7,11 @@ Paste Formatter is a simple macOS menu bar app that pastes formatted content fro
 ## Features
 
 - Paste formatted clipboard content in the active app from Paste Formatter's menu in the menu bar or using a global keyboard shortcut
-- Preserve fonts when pasting
-- Preserve colors when pasting
-- Preserve links when pasting
-- Preserve list markers and indentation when pasting into text-only fields
-- Preserve paragraph breaks when pasting into text-only fields
+- Choose whether to preserve fonts when pasting
+- Choose whether to preserve colors when pasting
+- Choose whether to preserve links when pasting
+- Choose whether to preserve list markers and indentation in text-only fields
+- Choose whether to preserve paragraph breaks in text-only fields
 - Change the default keyboard shortcut
 - Launch the app automatically at login
 
