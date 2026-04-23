@@ -50,18 +50,10 @@ To create a zipped notarized release build, use a Developer ID Application certi
 ```bash
 ./scripts/build-app.sh \
   --bundle-identifier <BUNDLE_IDENTIFIER> \
-  --signing-identity "Developer ID Application: Your Name (TEAMID)" \
+  --signing-identity "<SIGNING_IDENTITY>" \
   --notarize \
   --release-zip
 ```
-
-The optional release arguments are:
-
-- `<SIGNING_IDENTITY>`: the exact name of your local code signing identity, usually a Developer ID Application certificate for notarized distribution.
-- `--notarize`: submits the signed app to Apple notarization, staples the ticket, and verifies the result. This requires the [asc CLI](https://github.com/nielsmouthaan/app-store-connect-cli) to be installed and authenticated locally.
-- `--release-zip`: creates `dist/Paste Formatter <version>.zip`, using the version from `Info.plist`.
-
-Notarization is optional and no private keys, certificates, or credentials are stored in this repository.
 
 ## Contribute
 
