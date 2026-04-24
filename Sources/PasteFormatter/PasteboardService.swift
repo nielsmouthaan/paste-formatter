@@ -68,7 +68,9 @@ fileprivate struct PasteboardEntrySnapshot {
 
 @MainActor
 struct PasteboardService {
-    private static let ownershipTokenType = NSPasteboard.PasteboardType("nl.nielsmouthaan.paste-formatter.temporary-content")
+    private static let ownershipTokenType = NSPasteboard.PasteboardType(
+        "\(Bundle.main.bundleIdentifier ?? "paste-formatter").temporary-content"
+    )
     private let pasteboard: NSPasteboard
 
     init(pasteboard: NSPasteboard = .general) {

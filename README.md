@@ -55,6 +55,16 @@ To create a zipped notarized release build, use:
   --release-zip
 ```
 
+To create a signed Mac App Store installer package, use:
+
+```bash
+./scripts/build-app.sh \
+  --bundle-identifier <BUNDLE_IDENTIFIER> \
+  --signing-identity "3rd Party Mac Developer Application: <NAME> (<TEAMID>)" \
+  --installer-signing-identity "3rd Party Mac Developer Installer: <NAME> (<TEAMID>)" \
+  --app-store-package
+```
+
 ## Contribute
 
 Contributions are welcome. Feel free to open an issue for bugs or feature requests, or open a pull request directly.

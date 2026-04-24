@@ -13,27 +13,39 @@ MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 INFO_TEMPLATE="$ROOT_DIR/Info.plist"
 INFO_PLIST="$CONTENTS_DIR/Info.plist"
+ENTITLEMENTS_PATH="$ROOT_DIR/PasteFormatter.entitlements"
+PRIVACY_MANIFEST="$ROOT_DIR/PrivacyInfo.xcprivacy"
 ICON_NAME="AppIcon"
 ICON_SOURCE_PATH="$ROOT_DIR/Assets/$ICON_NAME.icns"
 NOTARIZATION_ZIP="$DIST_DIR/$APP_NAME-notarization.zip"
 MARKETING_VERSION="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_TEMPLATE")"
 RELEASE_ZIP="$DIST_DIR/$APP_NAME $MARKETING_VERSION.zip"
+APP_STORE_PACKAGE="$DIST_DIR/PasteFormatter-$MARKETING_VERSION-mas.pkg"
 
 usage() {
   cat <<'EOF'
 Build a macOS Paste Formatter app bundle in dist/, optionally sign it,
-notarize it, and create a zipped release build.
+notarize it, create a zipped release build, or create a Mac App Store
+installer package.
 
 Usage:
   ./scripts/build-app.sh --bundle-identifier <identifier> [options]
   ./scripts/build-app.sh --help
 
 Options:
-  --bundle-identifier  Required bundle identifier for the generated app bundle.
-  --signing-identity   Optional code signing identity to sign the app bundle.
-  --notarize           Submit the signed app to Apple notarization and staple the ticket.
-  --release-zip        Create a distributable zip in dist/ after building.
-  --help               Show this help text.
+  --bundle-identifier        Required bundle identifier for the generated app bundle.
+  --signing-identity         Optional code signing identity to sign the app bundle.
+  --entitlements             Entitlements plist used for code signing.
+                             Defaults to PasteFormatter.entitlements.
+  --provisioning-profile     Optional provisioning profile to embed before signing.
+  --notarize                 Submit the signed app to Apple notarization and staple the ticket.
+  --release-zip              Create a distributable zip in dist/ after building.
+  --app-store-package        Create a Mac App Store installer package in dist/.
+  --installer-signing-identity
+                             Required with --app-store-package. Use a Mac Installer
+                             Distribution identity, commonly named
+                             "3rd Party Mac Developer Installer: ...".
+  --help                     Show this help text.
 
 Examples:
   ./scripts/build-app.sh --bundle-identifier com.example.paste-formatter
@@ -43,13 +55,22 @@ Examples:
     --signing-identity "Developer ID Application: Example (TEAMID)" \
     --notarize \
     --release-zip
+
+  ./scripts/build-app.sh \
+    --bundle-identifier com.example.paste-formatter \
+    --signing-identity "3rd Party Mac Developer Application: Example (TEAMID)" \
+    --installer-signing-identity "3rd Party Mac Developer Installer: Example (TEAMID)" \
+    --app-store-package
 EOF
 }
 
 BUNDLE_IDENTIFIER=""
 SIGNING_IDENTITY=""
+INSTALLER_SIGNING_IDENTITY=""
+PROVISIONING_PROFILE=""
 NOTARIZE=false
 CREATE_RELEASE_ZIP=false
+CREATE_APP_STORE_PACKAGE=false
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -71,12 +92,43 @@ while [ "$#" -gt 0 ]; do
       SIGNING_IDENTITY="$2"
       shift 2
       ;;
+    --entitlements)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing value for --entitlements" >&2
+        usage >&2
+        exit 1
+      fi
+      ENTITLEMENTS_PATH="$2"
+      shift 2
+      ;;
+    --installer-signing-identity)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing value for --installer-signing-identity" >&2
+        usage >&2
+        exit 1
+      fi
+      INSTALLER_SIGNING_IDENTITY="$2"
+      shift 2
+      ;;
+    --provisioning-profile)
+      if [ "$#" -lt 2 ]; then
+        echo "Missing value for --provisioning-profile" >&2
+        usage >&2
+        exit 1
+      fi
+      PROVISIONING_PROFILE="$2"
+      shift 2
+      ;;
     --notarize)
       NOTARIZE=true
       shift
       ;;
     --release-zip)
       CREATE_RELEASE_ZIP=true
+      shift
+      ;;
+    --app-store-package)
+      CREATE_APP_STORE_PACKAGE=true
       shift
       ;;
     --help)
@@ -103,6 +155,35 @@ if [ "$NOTARIZE" = true ] && [ -z "$SIGNING_IDENTITY" ]; then
   exit 1
 fi
 
+if [ "$CREATE_APP_STORE_PACKAGE" = true ]; then
+  if [ -z "$SIGNING_IDENTITY" ]; then
+    echo "Missing required --signing-identity argument for --app-store-package" >&2
+    usage >&2
+    exit 1
+  fi
+
+  if [ -z "$INSTALLER_SIGNING_IDENTITY" ]; then
+    echo "Missing required --installer-signing-identity argument for --app-store-package" >&2
+    usage >&2
+    exit 1
+  fi
+
+  if [ "$NOTARIZE" = true ]; then
+    echo "--notarize is for Developer ID distribution and cannot be combined with --app-store-package" >&2
+    exit 1
+  fi
+
+  if [ ! -f "$ENTITLEMENTS_PATH" ]; then
+    echo "Missing entitlements file for --app-store-package: $ENTITLEMENTS_PATH" >&2
+    exit 1
+  fi
+fi
+
+if [ -n "$PROVISIONING_PROFILE" ] && [ ! -f "$PROVISIONING_PROFILE" ]; then
+  echo "Provisioning profile not found: $PROVISIONING_PROFILE" >&2
+  exit 1
+fi
+
 echo "Building release executable..."
 xcodebuildmcp swift-package build --package-path "$ROOT_DIR" --configuration release
 
@@ -126,16 +207,42 @@ if [ -f "$ICON_SOURCE_PATH" ]; then
   cp "$ICON_SOURCE_PATH" "$RESOURCES_DIR/$ICON_NAME.icns"
 fi
 
+if [ -f "$PRIVACY_MANIFEST" ]; then
+  cp "$PRIVACY_MANIFEST" "$RESOURCES_DIR/PrivacyInfo.xcprivacy"
+fi
+
+if [ -n "$PROVISIONING_PROFILE" ]; then
+  cp "$PROVISIONING_PROFILE" "$CONTENTS_DIR/embedded.provisionprofile"
+fi
+
 chmod 755 "$MACOS_DIR/$EXECUTABLE_NAME"
 /usr/bin/xattr -cr "$APP_BUNDLE"
 
 if [ -n "$SIGNING_IDENTITY" ]; then
   echo "Signing app bundle with $SIGNING_IDENTITY..."
-  /usr/bin/codesign --force --sign "$SIGNING_IDENTITY" --identifier "$BUNDLE_IDENTIFIER" --options runtime --timestamp "$MACOS_DIR/$EXECUTABLE_NAME"
-  /usr/bin/codesign --force --sign "$SIGNING_IDENTITY" --identifier "$BUNDLE_IDENTIFIER" --options runtime --timestamp "$APP_BUNDLE"
+  CODESIGN_ARGS=(--force --sign "$SIGNING_IDENTITY")
+
+  if [ -f "$ENTITLEMENTS_PATH" ]; then
+    CODESIGN_ARGS+=(--entitlements "$ENTITLEMENTS_PATH")
+  fi
+
+  if [ "$CREATE_APP_STORE_PACKAGE" = false ]; then
+    CODESIGN_ARGS+=(--options runtime --timestamp)
+  fi
+
+  /usr/bin/codesign "${CODESIGN_ARGS[@]}" "$APP_BUNDLE"
   /usr/bin/codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
 else
   echo "Skipping code signing. Pass --signing-identity to sign the app bundle."
+fi
+
+if [ "$CREATE_APP_STORE_PACKAGE" = true ]; then
+  echo "Creating Mac App Store package at $APP_STORE_PACKAGE..."
+  rm -f "$APP_STORE_PACKAGE"
+  productbuild \
+    --sign "$INSTALLER_SIGNING_IDENTITY" \
+    --component "$APP_BUNDLE" /Applications \
+    "$APP_STORE_PACKAGE"
 fi
 
 if [ "$NOTARIZE" = true ]; then
@@ -171,4 +278,9 @@ echo "$APP_BUNDLE"
 if [ "$CREATE_RELEASE_ZIP" = true ]; then
   echo "Release zip created:"
   echo "$RELEASE_ZIP"
+fi
+
+if [ "$CREATE_APP_STORE_PACKAGE" = true ]; then
+  echo "Mac App Store package created:"
+  echo "$APP_STORE_PACKAGE"
 fi
