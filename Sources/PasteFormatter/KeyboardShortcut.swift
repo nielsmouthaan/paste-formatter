@@ -8,7 +8,7 @@ struct KeyboardShortcut: Equatable, Sendable {
 
     static let `default` = KeyboardShortcut(
         keyCode: UInt32(kVK_ANSI_V),
-        carbonModifiers: UInt32(controlKey) | UInt32(optionKey) | UInt32(cmdKey)
+        carbonModifiers: UInt32(optionKey) | UInt32(cmdKey)
     )
 
     init(keyCode: UInt32, carbonModifiers: UInt32) {
