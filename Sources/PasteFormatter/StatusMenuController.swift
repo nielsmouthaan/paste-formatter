@@ -19,6 +19,10 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
     private lazy var pasteItem: NSMenuItem = {
         let item = NSMenuItem(title: "Paste", action: #selector(handlePasteMenuItem), keyEquivalent: "v")
         item.keyEquivalentModifierMask = [.control, .option, .command]
+        item.image = makeMenuItemImage(
+            systemSymbolNames: ["document.on.clipboard"],
+            accessibilityDescription: "Paste"
+        )
         item.target = self
         return item
     }()
@@ -210,6 +214,23 @@ final class StatusMenuController: NSObject, NSMenuDelegate {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
         item.target = self
         return item
+    }
+
+    private func makeMenuItemImage(
+        systemSymbolNames: [String],
+        accessibilityDescription: String
+    ) -> NSImage? {
+        for symbolName in systemSymbolNames {
+            if let image = NSImage(
+                systemSymbolName: symbolName,
+                accessibilityDescription: accessibilityDescription
+            ) {
+                image.isTemplate = true
+                return image
+            }
+        }
+
+        return nil
     }
 
     private func updateOptions(_ mutate: (inout PasteFormattingOptions) -> Void) {
