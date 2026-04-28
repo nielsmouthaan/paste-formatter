@@ -39,13 +39,16 @@ public enum PlainTextFormatter {
 
             if options.preserveListsInPlainText, currentListSignature != nil {
                 let itemNumber = listState.nextItemNumber(for: paragraphStyle)
-                if let markerPrefix = missingListMarkerPrefix(
+                if let markerInsertion = listMarkerInsertion(
                     in: input,
                     paragraphRange: paragraphRange,
                     itemNumber: itemNumber
                 ) {
-                    result.insert(markerPrefix, at: paragraphRange.location + insertedCharacters)
-                    insertedCharacters += (markerPrefix as NSString).length
+                    result.insert(
+                        markerInsertion.text,
+                        at: paragraphRange.location + markerInsertion.offset + insertedCharacters
+                    )
+                    insertedCharacters += (markerInsertion.text as NSString).length
                 }
             } else {
                 listState.reset()
@@ -118,11 +121,11 @@ public enum PlainTextFormatter {
             .joined(separator: "|")
     }
 
-    private static func missingListMarkerPrefix(
+    private static func listMarkerInsertion(
         in input: NSAttributedString,
         paragraphRange: NSRange,
         itemNumber: Int
-    ) -> String? {
+    ) -> PlainTextInsertion? {
         guard
             let paragraphStyle = input.attribute(.paragraphStyle, at: paragraphRange.location, effectiveRange: nil) as? NSParagraphStyle,
             let textList = paragraphStyle.textLists.last
@@ -133,19 +136,61 @@ public enum PlainTextFormatter {
         let source = input.string as NSString
         let paragraphText = source.substring(with: paragraphRange)
         let trimmedParagraphText = paragraphText.trimmingCharacters(in: .whitespacesAndNewlines)
-        let marker = normalizedMarker(textList.marker(forItemNumber: itemNumber), for: textList)
+        let rawMarker = textList.marker(forItemNumber: itemNumber)
+        let marker = normalizedMarker(rawMarker, for: textList)
 
         guard !trimmedParagraphText.isEmpty else {
             return nil
         }
 
-        if trimmedParagraphText.hasPrefix(marker) || trimmedParagraphText.hasPrefix(textList.marker(forItemNumber: itemNumber)) {
+        if trimmedParagraphText.hasPrefix(marker) {
+            return nil
+        }
+
+        if let suffixInsertion = missingMarkerSuffixInsertion(
+            in: paragraphText,
+            rawMarker: rawMarker,
+            normalizedMarker: marker
+        ) {
+            return suffixInsertion
+        }
+
+        if trimmedParagraphText.hasPrefix(rawMarker) {
             return nil
         }
 
         let level = paragraphStyle.textLists.count
         let indentation = String(repeating: "  ", count: max(level - 1, 0))
-        return "\(indentation)\(marker) "
+        return PlainTextInsertion(text: "\(indentation)\(marker) ", offset: 0)
+    }
+
+    private static func missingMarkerSuffixInsertion(
+        in paragraphText: String,
+        rawMarker: String,
+        normalizedMarker: String
+    ) -> PlainTextInsertion? {
+        guard
+            normalizedMarker.hasPrefix(rawMarker),
+            normalizedMarker != rawMarker,
+            let contentStart = paragraphText.firstIndex(where: { !$0.isWhitespace && !$0.isNewline })
+        else {
+            return nil
+        }
+
+        let content = paragraphText[contentStart...]
+
+        guard content.hasPrefix(rawMarker) else {
+            return nil
+        }
+
+        let markerEnd = content.index(content.startIndex, offsetBy: rawMarker.count)
+        guard markerEnd < content.endIndex, content[markerEnd].isWhitespace else {
+            return nil
+        }
+
+        let suffix = String(normalizedMarker.dropFirst(rawMarker.count))
+        let offset = paragraphText.utf16.distance(from: paragraphText.startIndex, to: markerEnd)
+        return PlainTextInsertion(text: suffix, offset: offset)
     }
 
     private static func normalizedMarker(_ marker: String, for textList: NSTextList) -> String {
@@ -172,6 +217,11 @@ public enum PlainTextFormatter {
 
         return [".", ")", ":", ";"].contains(last)
     }
+}
+
+private struct PlainTextInsertion {
+    let text: String
+    let offset: Int
 }
 
 private struct PlainTextListState {
