@@ -54,6 +54,23 @@ import Testing
 }
 
 @MainActor
+@Test func doesNotClearClipboardWhenAttributedContentCannotBeSerialized() {
+    let pasteboard = NSPasteboard(name: NSPasteboard.Name("PasteFormatterTests.\(UUID().uuidString)"))
+    let service = PasteboardService(pasteboard: pasteboard)
+
+    pasteboard.clearContents()
+    #expect(pasteboard.setString("Original clipboard", forType: .string))
+
+    let temporaryReceipt = service.write(
+        .attributed(FailingAttributedString(value: "Temporary clipboard")),
+        options: PasteFormattingOptions()
+    )
+
+    #expect(temporaryReceipt == nil)
+    #expect(pasteboard.string(forType: .string) == "Original clipboard")
+}
+
+@MainActor
 @Test func emptyPasteboardDoesNotHaveContents() {
     let pasteboard = NSPasteboard(name: NSPasteboard.Name("PasteFormatterTests.\(UUID().uuidString)"))
     let service = PasteboardService(pasteboard: pasteboard)
@@ -76,6 +93,41 @@ import Testing
 
     #expect(service.hasContents)
     #expect(service.readCurrentContents() == nil)
+}
+
+private final class FailingAttributedString: NSAttributedString {
+    private let value: String
+
+    init(value: String) {
+        self.value = value
+        super.init()
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    required init?(pasteboardPropertyList propertyList: Any, ofType type: NSPasteboard.PasteboardType) {
+        nil
+    }
+
+    override var string: String {
+        value
+    }
+
+    override func attributes(
+        at location: Int,
+        effectiveRange range: NSRangePointer?
+    ) -> [NSAttributedString.Key: Any] {
+        [:]
+    }
+
+    override func data(
+        from range: NSRange,
+        documentAttributes dict: [NSAttributedString.DocumentAttributeKey: Any] = [:]
+    ) throws -> Data {
+        throw CocoaError(.fileWriteUnknown)
+    }
 }
 
 @MainActor

@@ -62,6 +62,7 @@ To create a signed Mac App Store installer package, use:
   --bundle-identifier <BUNDLE_IDENTIFIER> \
   --signing-identity "3rd Party Mac Developer Application: <NAME> (<TEAMID>)" \
   --installer-signing-identity "3rd Party Mac Developer Installer: <NAME> (<TEAMID>)" \
+  --provisioning-profile "<PROFILE.provisionprofile>" \
   --app-store-package
 ```
 

@@ -38,7 +38,8 @@ Options:
   --signing-identity         Optional code signing identity to sign the app bundle.
   --entitlements             Entitlements plist used for code signing.
                              Defaults to PasteFormatter.entitlements.
-  --provisioning-profile     Optional provisioning profile to embed before signing.
+  --provisioning-profile     Provisioning profile to embed before signing.
+                             Required with --app-store-package.
   --notarize                 Submit the signed app to Apple notarization and staple the ticket.
   --release-zip              Create a distributable zip in dist/ after building.
   --app-store-package        Create a Mac App Store installer package in dist/.
@@ -61,6 +62,7 @@ Examples:
     --bundle-identifier com.example.paste-formatter \
     --signing-identity "3rd Party Mac Developer Application: Example (TEAMID)" \
     --installer-signing-identity "3rd Party Mac Developer Installer: Example (TEAMID)" \
+    --provisioning-profile "Paste Formatter.provisionprofile" \
     --app-store-package
 EOF
 }
@@ -169,6 +171,12 @@ if [ "$CREATE_APP_STORE_PACKAGE" = true ]; then
     exit 1
   fi
 
+  if [ -z "$PROVISIONING_PROFILE" ]; then
+    echo "Missing required --provisioning-profile argument for --app-store-package" >&2
+    usage >&2
+    exit 1
+  fi
+
   if [ "$NOTARIZE" = true ]; then
     echo "--notarize is for Developer ID distribution and cannot be combined with --app-store-package" >&2
     exit 1
@@ -185,10 +193,44 @@ if [ -n "$PROVISIONING_PROFILE" ] && [ ! -f "$PROVISIONING_PROFILE" ]; then
   exit 1
 fi
 
-echo "Building release executable..."
-xcodebuildmcp swift-package build --package-path "$ROOT_DIR" --configuration release
+if [ "$CREATE_APP_STORE_PACKAGE" = true ]; then
+  PROFILE_PLIST="$(mktemp "${TMPDIR:-/tmp}/paste-formatter-profile.XXXXXX.plist")"
+  if ! /usr/bin/openssl smime -inform der -verify -noverify -in "$PROVISIONING_PROFILE" -out "$PROFILE_PLIST" >/dev/null 2>&1; then
+    rm -f "$PROFILE_PLIST"
+    echo "Could not decode provisioning profile: $PROVISIONING_PROFILE" >&2
+    exit 1
+  fi
 
-EXECUTABLE_PATH="$(find "$ROOT_DIR/.build" -path "*/release/$EXECUTABLE_TARGET" -type f | head -n 1)"
+  PROFILE_APP_IDENTIFIER="$(
+    /usr/libexec/PlistBuddy -c "Print :Entitlements:com.apple.application-identifier" "$PROFILE_PLIST" 2>/dev/null \
+      || /usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$PROFILE_PLIST" 2>/dev/null \
+      || true
+  )"
+  rm -f "$PROFILE_PLIST"
+
+  PROFILE_BUNDLE_IDENTIFIER="${PROFILE_APP_IDENTIFIER#*.}"
+  if [ -z "$PROFILE_APP_IDENTIFIER" ] || [ "$PROFILE_BUNDLE_IDENTIFIER" != "$BUNDLE_IDENTIFIER" ]; then
+    echo "Provisioning profile does not match bundle identifier $BUNDLE_IDENTIFIER." >&2
+    echo "Profile application identifier: ${PROFILE_APP_IDENTIFIER:-unknown}" >&2
+    exit 1
+  fi
+fi
+
+echo "Building release executable..."
+if [ "$CREATE_APP_STORE_PACKAGE" = true ]; then
+  xcodebuildmcp swift-package build \
+    --package-path "$ROOT_DIR" \
+    --configuration release \
+    --architectures arm64 x86_64
+else
+  xcodebuildmcp swift-package build --package-path "$ROOT_DIR" --configuration release
+fi
+
+if [ "$CREATE_APP_STORE_PACKAGE" = true ]; then
+  EXECUTABLE_PATH="$ROOT_DIR/.build/apple/Products/Release/$EXECUTABLE_TARGET"
+else
+  EXECUTABLE_PATH="$(find "$ROOT_DIR/.build" -path "*/release/$EXECUTABLE_TARGET" -type f ! -path "$ROOT_DIR/.build/apple/*" | head -n 1)"
+fi
 
 if [ -z "$EXECUTABLE_PATH" ] || [ ! -x "$EXECUTABLE_PATH" ]; then
   echo "Expected release executable not found under $ROOT_DIR/.build" >&2
@@ -265,6 +307,16 @@ fi
 
 chmod 755 "$MACOS_DIR/$EXECUTABLE_NAME"
 /usr/bin/xattr -cr "$APP_BUNDLE"
+
+if [ "$CREATE_APP_STORE_PACKAGE" = true ]; then
+  BINARY_ARCHITECTURES="$(/usr/bin/lipo -archs "$MACOS_DIR/$EXECUTABLE_NAME")"
+  if [[ " $BINARY_ARCHITECTURES " != *" arm64 "* ]] || [[ " $BINARY_ARCHITECTURES " != *" x86_64 "* ]]; then
+    echo "Mac App Store package builds must include arm64 and x86_64. Found: $BINARY_ARCHITECTURES" >&2
+    exit 1
+  fi
+
+  echo "Verified universal app binary architectures: $BINARY_ARCHITECTURES"
+fi
 
 if [ -n "$SIGNING_IDENTITY" ]; then
   echo "Signing app bundle with $SIGNING_IDENTITY..."

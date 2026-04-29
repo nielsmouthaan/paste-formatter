@@ -113,8 +113,32 @@ struct PasteboardService {
 
     @discardableResult
     func write(_ payload: ClipboardPayload, options: PasteFormattingOptions) -> PasteboardWriteReceipt? {
-        pasteboard.clearContents()
         let ownershipToken = UUID().uuidString
+        guard let item = makePasteboardItem(
+            for: payload,
+            options: options,
+            ownershipToken: ownershipToken
+        ) else {
+            return nil
+        }
+
+        let snapshot = captureSnapshot()
+        pasteboard.clearContents()
+
+        guard pasteboard.writeObjects([item]) else {
+            restoreSnapshot(snapshot)
+            return nil
+        }
+
+        return PasteboardWriteReceipt(changeCount: pasteboard.changeCount, ownershipToken: ownershipToken)
+    }
+
+    private func makePasteboardItem(
+        for payload: ClipboardPayload,
+        options: PasteFormattingOptions,
+        ownershipToken: String
+    ) -> NSPasteboardItem? {
+        let item = NSPasteboardItem()
 
         switch payload {
         case .attributed(let attributedString):
@@ -128,19 +152,15 @@ struct PasteboardService {
             }
 
             let plainText = PlainTextFormatter.string(from: attributedString, options: options)
-            let wroteRichText = pasteboard.setData(rtfData, forType: .rtf)
-            let wrotePlainText = pasteboard.setString(plainText, forType: .string)
-            let wroteOwnershipToken = pasteboard.setString(ownershipToken, forType: Self.ownershipTokenType)
-            return wroteRichText && wrotePlainText && wroteOwnershipToken
-                ? PasteboardWriteReceipt(changeCount: pasteboard.changeCount, ownershipToken: ownershipToken)
-                : nil
+            let wroteRichText = item.setData(rtfData, forType: .rtf)
+            let wrotePlainText = item.setString(plainText, forType: .string)
+            let wroteOwnershipToken = item.setString(ownershipToken, forType: Self.ownershipTokenType)
+            return wroteRichText && wrotePlainText && wroteOwnershipToken ? item : nil
 
         case .plainText(let string):
-            let wrotePlainText = pasteboard.setString(string, forType: .string)
-            let wroteOwnershipToken = pasteboard.setString(ownershipToken, forType: Self.ownershipTokenType)
-            return wrotePlainText && wroteOwnershipToken
-                ? PasteboardWriteReceipt(changeCount: pasteboard.changeCount, ownershipToken: ownershipToken)
-                : nil
+            let wrotePlainText = item.setString(string, forType: .string)
+            let wroteOwnershipToken = item.setString(ownershipToken, forType: Self.ownershipTokenType)
+            return wrotePlainText && wroteOwnershipToken ? item : nil
         }
     }
 
@@ -154,6 +174,18 @@ struct PasteboardService {
             return false
         }
 
+        pasteboard.clearContents()
+
+        guard !snapshot.items.isEmpty else {
+            return true
+        }
+
+        let items = snapshot.items.map { $0.makeItem() }
+        return pasteboard.writeObjects(items)
+    }
+
+    @discardableResult
+    private func restoreSnapshot(_ snapshot: PasteboardSnapshot) -> Bool {
         pasteboard.clearContents()
 
         guard !snapshot.items.isEmpty else {
